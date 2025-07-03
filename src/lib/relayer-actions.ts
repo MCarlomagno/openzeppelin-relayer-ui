@@ -1,4 +1,6 @@
 "use server"
+import { EvmTransactionRequest } from "@openzeppelin/relayer-sdk";
+
 type BalanceResponse = {
   data: {
     balance: number;
@@ -45,6 +47,35 @@ export type CallPluginResponse = {
   };
 };
 
+export type SendTransactionRequest = {
+  to: string;
+  value: string;
+  data: string;
+  gas_limit: string;
+  gas_price: string;
+}
+
+export type SendTransactionResponse = {
+  success: boolean;
+  data: {
+    id: string;
+    hash: string;
+    status: string;
+    status_reason: string;
+    created_at: string;
+    sent_at: string;
+    confirmed_at: string;
+    gas_price: string;
+    gas_limit: number;
+    nonce: string;
+    value: string;
+    from: string;
+    to: string;
+    relayer_id: string;
+  };
+  error: string;
+}
+
 export async function listRelayers(relayerUrl: string, apiKey: string): Promise<ListRelayersResponse> {
   const url = `${relayerUrl}/api/v1/relayers`;
   const response = await fetch(url, {
@@ -76,20 +107,18 @@ export async function getRelayerTransactions(relayerUrl: string, apiKey: string,
   return response.json();
 }
 
-export async function sendEvmTransaction(relayerUrl: string, apiKey: string, relayerId: string, transaction: any) {
-  // Mock implementation
-  // const config = new Configuration({
-  //   basePath: relayerUrl,
-  //   accessToken: apiKey,
-  // });
-  // const relayersApi = new RelayersApi(config);
-  // return await relayersApi.sendTransaction(relayerId, transaction);
+export async function sendEvmTransaction(relayerUrl: string, apiKey: string, relayerId: string, transaction: EvmTransactionRequest): Promise<SendTransactionResponse> {
+  const url = `${relayerUrl}/api/v1/relayers/${relayerId}/transactions`;
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${apiKey}`
+    },
+    body: JSON.stringify(transaction)
+  });
 
-  return {
-    id: "tx-" + Math.random().toString(36).substr(2, 9),
-    status: "pending",
-    created_at: new Date().toISOString(),
-  }
+  return response.json();
 }
 
 export async function sendStellarTransaction(relayerUrl: string, apiKey: string, relayerId: string, transaction: any) {

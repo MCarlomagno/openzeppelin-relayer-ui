@@ -1,322 +1,270 @@
-"use client"
+import React, { useState } from 'react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import { Card, CardContent } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { ChevronDown, Zap, Settings, Calculator, Clock } from 'lucide-react';
+import { EvmTransactionRequest, Speed } from '@openzeppelin/relayer-sdk';
+import { Relayer } from './relayers-section';
+import { sendEvmTransaction } from '@/lib/relayer-actions';
+import { toast } from '@/hooks/use-toast';
 
-import { useState } from "react"
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Textarea } from "@/components/ui/textarea"
-import { useToast } from "@/hooks/use-toast"
-import { sendEvmTransaction, sendSolanaTransaction, sendStellarTransaction } from "@/lib/relayer-actions"
+export default function TransactionDialog({ relayer, onClose, config }: { relayer: Relayer, onClose: () => void, config: { relayerUrl: string, apiKey: string } }) {
+  const [showAdvanced, setShowAdvanced] = useState(true);
+  const [speed, setSpeed] = useState<Speed | "custom">(Speed.AVERAGE);
+  const [to, setTo] = useState("");
+  const [value, setValue] = useState("0");
+  const [data, setData] = useState("0x");
+  const [gasLimit, setGasLimit] = useState("21000");
+  const [gasPrice, setGasPrice] = useState("");
+  const [maxFee, setMaxFee] = useState("");
+  const [maxPriority, setMaxPriority] = useState("");
+  const [validUntil, setValidUntil] = useState("");
 
-interface SendTransactionDialogProps {
-  relayer: any
-  config: {
-    relayerUrl: string
-    apiKey: string
-    configJson: string
-  }
-  onClose: () => void
-}
-
-export function SendTransactionDialog({ relayer, config, onClose }: SendTransactionDialogProps) {
-  const [loading, setLoading] = useState(false)
-  const { toast } = useToast()
-
-  // EVM form state
-  const [evmForm, setEvmForm] = useState({
-    to: "0xc834dcdc9a074dbbadcc71584789ae4b463db116",
-    value: "0",
-    data: "0x",
-    gas_limit: "21000",
-    speed: "FAST",
-  })
-
-  // Stellar form state
-  const [stellarForm, setStellarForm] = useState({
-    source_account: "",
-    destination: "",
-    amount: "1",
-    network: relayer?.network || "testnet",
-  })
-
-  // Solana form state
-  const [solanaForm, setSolanaForm] = useState({
-    token: "So11111111111111111111111111111111111111112",
-    amount: "1",
-    source: "",
-    destination: "",
-  })
-
-  const getExamplePayload = () => {
-    switch (relayer?.network_type) {
-      case "evm":
-        return JSON.stringify(
-          {
-            to: evmForm.to,
-            value: Number.parseInt(evmForm.value),
-            data: evmForm.data,
-            gas_limit: Number.parseInt(evmForm.gas_limit),
-            speed: evmForm.speed,
-          },
-          null,
-          2,
-        )
-      case "stellar":
-        return JSON.stringify(
-          {
-            source_account: stellarForm.source_account,
-            network: stellarForm.network,
-            operations: [
-              {
-                type: "PAYMENT",
-                destination: stellarForm.destination,
-                amount: Number.parseInt(stellarForm.amount),
-                asset: { type: "NATIVE" },
-              },
-            ],
-          },
-          null,
-          2,
-        )
-      case "solana":
-        return JSON.stringify(
-          {
-            method: "transferTransaction",
-            id: 1,
-            jsonrpc: "2.0",
-            params: {
-              token: solanaForm.token,
-              amount: Number.parseInt(solanaForm.amount),
-              source: solanaForm.source,
-              destination: solanaForm.destination,
-            },
-          },
-          null,
-          2,
-        )
-      default:
-        return "{}"
-    }
-  }
+  const speedOptions = {
+    [Speed.SAFE_LOW]: { name: "Safe Low", color: "bg-blue-500" },
+    [Speed.AVERAGE]: { name: "Average", color: "bg-green-500" },
+    [Speed.FAST]: { name: "Fast", color: "bg-orange-500" },
+    [Speed.FASTEST]: { name: "Fastest", color: "bg-red-500" },
+    custom: { name: "Custom", color: "bg-purple-500" }
+  };
 
   const handleSendTransaction = async () => {
-    if (!config.apiKey || !config.relayerUrl) {
-      toast({
-        title: "Configuration required",
-        description: "Please set your relayer URL and API key first.",
-        variant: "destructive",
-      })
-      return
+    const tx: EvmTransactionRequest = {
+      to: to,
+      value: Number(value),
+      speed: speed !== "custom" ? speed : undefined,
+      data: data,
+      gas_limit: Number(gasLimit),
+      gas_price: speed === "custom" ? Number(gasPrice) : undefined,
+      max_fee_per_gas: speed === "custom" ? Number(maxFee) : undefined,
+      max_priority_fee_per_gas: speed === "custom" ? Number(maxPriority) : undefined,
+      valid_until: validUntil ? validUntil : undefined,
     }
 
-    setLoading(true)
-    try {
-      let result
-      switch (relayer.network_type) {
-        case "evm":
-          result = await sendEvmTransaction(config.relayerUrl, config.apiKey, relayer.id, {
-            to: evmForm.to,
-            value: Number.parseInt(evmForm.value),
-            data: evmForm.data,
-            gas_limit: Number.parseInt(evmForm.gas_limit),
-            speed: evmForm.speed as any,
-          })
-          break
-        case "stellar":
-          result = await sendStellarTransaction(config.relayerUrl, config.apiKey, relayer.id, {
-            source_account: stellarForm.source_account,
-            network: stellarForm.network,
-            operations: [
-              {
-                type: "PAYMENT" as any,
-                destination: stellarForm.destination,
-                amount: Number.parseInt(stellarForm.amount),
-                asset: { type: "NATIVE" as any },
-              },
-            ],
-          })
-          break
-        case "solana":
-          result = await sendSolanaTransaction(config.relayerUrl, config.apiKey, relayer.id, {
-            token: solanaForm.token,
-            amount: Number.parseInt(solanaForm.amount),
-            source: solanaForm.source,
-            destination: solanaForm.destination,
-          })
-          break
-      }
-
+    const response = await sendEvmTransaction(config.relayerUrl, config.apiKey, relayer.id, tx);
+    if (response.success) {
       toast({
         title: "Transaction sent",
-        description: `Transaction ID: ${result?.id}`,
+        description: "Transaction has been sent.",
       })
-      onClose()
-    } catch (error) {
+      onClose();
+    } else {
       toast({
         title: "Failed to send transaction",
-        description: "Please check your configuration and try again.",
+        description: response.error,
         variant: "destructive",
       })
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const renderForm = () => {
-    switch (relayer?.network_type) {
-      case "evm":
-        return (
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label>To Address</Label>
-              <Input
-                value={evmForm.to}
-                onChange={(e) => setEvmForm({ ...evmForm, to: e.target.value })}
-                placeholder="0x..."
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Value (Wei)</Label>
-              <Input
-                value={evmForm.value}
-                onChange={(e) => setEvmForm({ ...evmForm, value: e.target.value })}
-                placeholder="0"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Data</Label>
-              <Input
-                value={evmForm.data}
-                onChange={(e) => setEvmForm({ ...evmForm, data: e.target.value })}
-                placeholder="0x"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Gas Limit</Label>
-              <Input
-                value={evmForm.gas_limit}
-                onChange={(e) => setEvmForm({ ...evmForm, gas_limit: e.target.value })}
-                placeholder="21000"
-              />
-            </div>
-          </div>
-        )
-      case "stellar":
-        return (
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label>Source Account</Label>
-              <Input
-                value={stellarForm.source_account}
-                onChange={(e) => setStellarForm({ ...stellarForm, source_account: e.target.value })}
-                placeholder="GABC..."
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Destination</Label>
-              <Input
-                value={stellarForm.destination}
-                onChange={(e) => setStellarForm({ ...stellarForm, destination: e.target.value })}
-                placeholder="GDEF..."
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Amount</Label>
-              <Input
-                value={stellarForm.amount}
-                onChange={(e) => setStellarForm({ ...stellarForm, amount: e.target.value })}
-                placeholder="1"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Network</Label>
-              <Select
-                value={stellarForm.network}
-                onValueChange={(value) => setStellarForm({ ...stellarForm, network: value })}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="testnet">Testnet</SelectItem>
-                  <SelectItem value="mainnet">Mainnet</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-        )
-      case "solana":
-        return (
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label>Token Mint</Label>
-              <Input
-                value={solanaForm.token}
-                onChange={(e) => setSolanaForm({ ...solanaForm, token: e.target.value })}
-                placeholder="So11111111111111111111111111111111111111112"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Amount</Label>
-              <Input
-                value={solanaForm.amount}
-                onChange={(e) => setSolanaForm({ ...solanaForm, amount: e.target.value })}
-                placeholder="1"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Source</Label>
-              <Input
-                value={solanaForm.source}
-                onChange={(e) => setSolanaForm({ ...solanaForm, source: e.target.value })}
-                placeholder="Source wallet address"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Destination</Label>
-              <Input
-                value={solanaForm.destination}
-                onChange={(e) => setSolanaForm({ ...solanaForm, destination: e.target.value })}
-                placeholder="Destination wallet address"
-              />
-            </div>
-          </div>
-        )
-      default:
-        return <div>Unsupported network type</div>
     }
   }
 
   return (
     <Dialog open={true} onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Send Transaction - {relayer?.name}</DialogTitle>
-          <DialogDescription>
-            Send a {relayer?.network_type?.toUpperCase()} transaction on {relayer?.network}
-          </DialogDescription>
+          <DialogTitle className="flex items-center gap-2">
+            <Zap className="h-5 w-5" />
+            Send Transaction
+          </DialogTitle>
         </DialogHeader>
 
-        <div className="space-y-4">
-          {renderForm()}
+        <div className="space-y-6">
+          {/* Relayer Info */}
+          <Card>
+            <CardContent className="pt-0">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <Badge variant="outline" className="capitalize">
+                    {relayer.network_type}
+                  </Badge>
+                  <span className="font-medium">{relayer.name}</span>
+                  <span className="text-sm text-muted-foreground">
+                    {relayer.network}
+                  </span>
+                </div>
+                <span className="text-sm font-mono bg-muted px-2 py-1 rounded">
+                  {relayer.address.slice(0, 6)}...{relayer.address.slice(-4)}
+                </span>
+              </div>
+            </CardContent>
+          </Card>
 
-          <div className="space-y-2">
-            <Label>Generated Payload</Label>
-            <Textarea value={getExamplePayload()} readOnly className="min-h-[200px] font-mono text-sm" />
+          {/* Basic Fields */}
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="to">To Address</Label>
+                <Input
+                  id="to"
+                  placeholder={"0x..."}
+                  value={to}
+                  onChange={(e) => setTo(e.target.value)}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="value">Value (ETH)</Label>
+                <Input
+                  id="value"
+                  type="number"
+                  step="0.001"
+                  placeholder={"0"}
+                  value={value}
+                  onChange={(e) => setValue(e.target.value)}
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="data">Transaction Data</Label>
+              <Textarea
+                id="data"
+                placeholder={"0x"}
+                className="font-mono text-sm"
+                rows={3}
+                value={data}
+                onChange={(e) => setData(e.target.value)}
+              />
+            </div>
           </div>
 
-          <div className="flex justify-end space-x-2">
-            <Button variant="outline" onClick={onClose}>
-              Cancel
-            </Button>
-            <Button onClick={handleSendTransaction} disabled={loading}>
-              {loading ? "Sending..." : "Send Transaction"}
-            </Button>
+          {/* Gas Speed Selection */}
+          <div className="space-y-3">
+            <Label className="flex items-center gap-2">
+              <Zap className="h-4 w-4" />
+              Transaction Speed
+            </Label>
+            <div className="grid grid-cols-2 lg:grid-cols-5 gap-2">
+              {Object.entries(speedOptions).map(([key, value]) => (
+                <Card
+                  key={key}
+                  className={`cursor-pointer transition-all flex flex-col items-center justify-center p-1 hover:shadow-md ${speed === key ? 'ring-2 ring-primary' : ''
+                    }`}
+                  onClick={() => setSpeed(key as Speed | "custom")}
+                >
+                  <CardContent className="p-3 text-center">
+                    <div className={`w-3 h-3 rounded-full ${value.color} mx-auto mb-2`} />
+                    <div className="font-medium text-sm">{value.name}</div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+            {speed !== 'custom' && (
+              <p className="text-xs text-muted-foreground">
+                Gas fees will be automatically calculated based on current network conditions
+              </p>
+            )}
           </div>
+
+
+          {/* Advanced Settings - Only show when custom speed is selected */}
+          {speed === 'custom' && (
+            <Collapsible open={showAdvanced} onOpenChange={setShowAdvanced}>
+              <CollapsibleTrigger asChild>
+                <Button variant="ghost" className="w-full justify-between p-0 h-auto">
+                  <span className="flex items-center gap-2">
+                    <Settings className="h-4 w-4" />
+                    Custom Gas Settings
+                  </span>
+                  <ChevronDown className={`h-4 w-4 transition-transform ${showAdvanced ? 'rotate-180' : ''}`} />
+                </Button>
+              </CollapsibleTrigger>
+              <CollapsibleContent className="space-y-4 mt-4">
+                {/* EIP-1559 Fields */}
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="maxFee">Max Fee Per Gas (gwei)</Label>
+                    <Input
+                      id="maxFee"
+                      placeholder="30"
+                      disabled={speed !== 'custom'}
+                      value={maxFee}
+                      onChange={(e) => setMaxFee(e.target.value)}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="maxPriority">Max Priority Fee (gwei)</Label>
+                    <Input
+                      id="maxPriority"
+                      placeholder="2"
+                      disabled={speed !== 'custom'}
+                      value={maxPriority}
+                      onChange={(e) => setMaxPriority(e.target.value)}
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="gasPrice">Gas Price (gwei)</Label>
+                    <Input
+                      id="gasPrice"
+                      placeholder="20"
+                      disabled={speed !== 'custom'}
+                      value={gasPrice}
+                      onChange={(e) => setGasPrice(e.target.value)}
+                    />
+                  </div>
+                </div>
+              </CollapsibleContent>
+            </Collapsible>
+          )}
+
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="gasLimit" className="flex items-center gap-1">
+                <Calculator className="h-3 w-3" />
+                Gas Limit
+              </Label>
+              <Input
+                id="gasLimit"
+                placeholder="21000"
+                value={gasLimit}
+                onChange={(e) => setGasLimit(e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="validUntil" className="flex items-center gap-1">
+                <Clock className="h-3 w-3" />
+                Valid Until (optional)
+              </Label>
+              <Input
+                id="validUntil"
+                type="datetime-local"
+                placeholder="Leave empty for no expiration"
+                value={validUntil}
+                onChange={(e) => setValidUntil(e.target.value)}
+              />
+            </div>
+          </div>
+          {/* Transaction Summary */}
+          <Card className="bg-muted/50">
+            <CardContent className="p-4">
+              <div className="flex justify-between items-center text-sm">
+                <span>Selected Speed:</span>
+                <span className="font-medium capitalize">{speedOptions[speed]?.name}</span>
+              </div>
+              <div className="text-xs text-muted-foreground mt-1">
+                {speed === 'custom'
+                  ? 'Using custom gas parameters'
+                  : 'Gas fees will be calculated automatically'}
+              </div>
+            </CardContent>
+          </Card>
         </div>
+
+        <DialogFooter className="gap-2">
+          <Button variant="outline" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button onClick={handleSendTransaction}>
+            Send Transaction
+          </Button>
+        </DialogFooter>
       </DialogContent>
     </Dialog>
-  )
+  );
 }

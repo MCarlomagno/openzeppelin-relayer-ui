@@ -5,30 +5,32 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { RefreshCw, Eye, ClipboardList, DollarSign } from "lucide-react"
+import { ClipboardList, DollarSign } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { getRelayerBalance, getRelayerTransactions, listRelayers, ListTransactionResponse } from "@/lib/relayer-actions"
-import { SendTransactionDialog } from "./send-transaction-dialog"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@radix-ui/react-tooltip"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import TransactionDialog from "./send-transaction-dialog"
 
-interface RelayersSectionProps {
-  config: {
+type RelayersSectionProps = {
+  config: { 
     relayerUrl: string
     apiKey: string
     configJson: string
   }
 }
 
+export type Relayer = {
+  id: string;
+  name: string;
+  network: string;
+  network_type: string;
+  paused: boolean;
+  address: string;
+}
+
 export function RelayersSection({ config }: RelayersSectionProps) {
-  const [relayers, setRelayers] = useState<{
-    id: string;
-    name: string;
-    network: string;
-    network_type: string;
-    paused: boolean;
-    address: string;
-  }[]>([])
+  const [relayers, setRelayers] = useState<Relayer[]>([])
   const [selectedRelayer, setSelectedRelayer] = useState<string | null>(null)
   const [transactions, setTransactions] = useState<ListTransactionResponse["data"]>([])
   const [balance, setBalance] = useState<{ relayerId: string, value: number, unit: string } | null>(null)
@@ -52,13 +54,6 @@ export function RelayersSection({ config }: RelayersSectionProps) {
   }, [config.configJson])
 
   const handleSendTransaction = async (relayerId: string) => {
-    toast({
-      title: "Not implemented",
-      description: "This feature is not implemented yet.",
-      variant: "destructive",
-    })
-
-    return;
     setShowSendTransaction(relayerId)
   }
 
@@ -240,7 +235,9 @@ export function RelayersSection({ config }: RelayersSectionProps) {
                       <TableCell className="font-mono">
                         <Tooltip>
                           <TooltipTrigger asChild className="">
-                            <span className="cursor-pointer">{tx.hash.slice(0, 6)}...{tx.hash.slice(-6)}</span>
+                            <span className="cursor-pointer">{
+                              tx.hash ? tx.hash.slice(0, 6) + "..." + tx.hash.slice(-6) : "-"
+                            }</span>
                           </TooltipTrigger>
                           <TooltipContent className="bg-background p-2 rounded-md text-xs">
                             <p>{tx.hash}</p>
@@ -279,10 +276,10 @@ export function RelayersSection({ config }: RelayersSectionProps) {
       )}
 
       {showSendTransaction && (
-        <SendTransactionDialog
-          relayer={relayers.find((r) => r.id === showSendTransaction)}
-          config={config}
+        <TransactionDialog 
+          relayer={relayers.find((r) => r.id === showSendTransaction) as Relayer}
           onClose={() => setShowSendTransaction(null)}
+          config={config}
         />
       )}
 

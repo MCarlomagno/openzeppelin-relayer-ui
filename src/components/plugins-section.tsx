@@ -93,19 +93,23 @@ export function PluginsSection({ config }: PluginsSectionProps) {
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">Plugin Execution Result
-
-            {pluginResult.data.success && <Badge variant="default" className="bg-green-500 text-white">Success</Badge>}
+            {!pluginResult.data.error && <Badge variant="default" className="bg-green-500 text-white">Success</Badge>}
             {pluginResult.data.error && <Badge variant="destructive">Error</Badge>}
             </CardTitle>
             
           </CardHeader>
           <CardContent>
-            <Label>Logs</Label>
-            <pre className="bg-muted p-4 rounded-md text-sm overflow-auto">{JSON.stringify(pluginResult.data.logs, null, 2)}</pre>
-            <Label>Return Value</Label>
-            <pre className="bg-muted p-4 rounded-md text-sm overflow-auto">{pluginResult.data.return_value}</pre>
-            <Label>Traces</Label>
-            <pre className="bg-muted p-4 rounded-md text-sm overflow-auto">{JSON.stringify(pluginResult.data.traces, null, 2)}</pre>
+            {pluginResult.data.error && <pre className="bg-muted p-4 rounded-md text-sm overflow-auto">{pluginResult.data.error}</pre>}
+            {!pluginResult.data.error && (
+              <>
+                <Label>Logs</Label>
+                <pre className="bg-muted p-4 rounded-md text-sm overflow-auto">{JSON.stringify(pluginResult.data.logs, null, 2)}</pre>
+                <Label>Return Value</Label>
+                <pre className="bg-muted p-4 rounded-md text-sm overflow-auto">{pluginResult.data.return_value}</pre>
+                <Label>Traces</Label>
+                <pre className="bg-muted p-4 rounded-md text-sm overflow-auto">{JSON.stringify(pluginResult.data.traces, null, 2)}</pre>
+              </>
+            )}
           </CardContent>
         </Card>
       )}

@@ -29,7 +29,7 @@ export function RelayerDashboard() {
     <div className="container mx-auto p-6">
       <div className="mb-8">
         <h1 className="text-3xl font-bold">Relayer Dashboard</h1>
-        <p className="text-muted-foreground">Manage your blockchain transaction relayers</p>
+        <p className="text-muted-foreground">Manage your OpenZeppelin relayers</p>
       </div>
 
       <Tabs defaultValue="configuration" className="space-y-6">
