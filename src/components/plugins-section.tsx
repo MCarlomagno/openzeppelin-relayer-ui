@@ -31,6 +31,10 @@ export function PluginsSection({ config }: PluginsSectionProps) {
   const [showInvokePlugin, setShowInvokePlugin] = useState<string | null>(null)
   const [pluginResult, setPluginResult] = useState<CallPluginResponse | null>(null)
 
+  function hasError(result: CallPluginResponse) {
+    return result.error || result.data?.error || result.success === false
+  }
+
   useEffect(() => {
     if (config.configJson) {
       try {
@@ -93,14 +97,13 @@ export function PluginsSection({ config }: PluginsSectionProps) {
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">Plugin Execution Result
-            {!pluginResult.data.error && <Badge variant="default" className="bg-green-500 text-white">Success</Badge>}
-            {pluginResult.data.error && <Badge variant="destructive">Error</Badge>}
+            {hasError(pluginResult) ? <Badge variant="destructive">Error</Badge> : <Badge variant="default" className="bg-green-500 text-white">Success</Badge>}
             </CardTitle>
             
           </CardHeader>
           <CardContent>
-            {pluginResult.data.error && <pre className="bg-muted p-4 rounded-md text-sm overflow-auto">{pluginResult.data.error}</pre>}
-            {!pluginResult.data.error && (
+            {hasError(pluginResult) && <pre className="bg-muted p-4 rounded-md text-sm overflow-auto">{pluginResult.error || pluginResult.data.error}</pre>}
+            {!hasError(pluginResult) && (
               <>
                 <Label>Logs</Label>
                 <pre className="bg-muted p-4 rounded-md text-sm overflow-auto">{JSON.stringify(pluginResult.data.logs, null, 2)}</pre>
@@ -151,7 +154,7 @@ function InvokePluginDialog({ plugin, config, onClose, onSuccess }: InvokePlugin
 
     toast({
       title: "Plugin invoked",
-      description: result.data.message,
+      description: result.data?.message || "Plugin invoked successfully",
     })
 
     onSuccess(result);

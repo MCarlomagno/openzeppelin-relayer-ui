@@ -45,6 +45,8 @@ export type CallPluginResponse = {
     success: boolean;
     traces: { method: string; payload: any, relayer_id: string, request_id: string }[];
   };
+  error: string;
+  success: boolean;
 };
 
 export type SendTransactionRequest = {
